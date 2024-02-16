@@ -24,8 +24,8 @@ _git_ahead() {
 	if [ $? != 0 ]; then
 		return
 	fi
-	behind=$(echo $commits | grep "^<" | wc -l)
-	ahead=$(echo $commits | grep -v "^<" | wc -l)
+	behind=$(echo -n $commits | grep "^<" | wc -l)
+	ahead=$(echo -n $commits | grep -v "^<" | wc -l)
 	case "$ahead $behind" in
 		"") ;; # no upstream
 		"0 0") # equal to upstream
