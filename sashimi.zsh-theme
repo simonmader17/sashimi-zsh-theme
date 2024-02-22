@@ -56,7 +56,10 @@ sashimi() {
 			git_info="$git_info $dirty"
 		fi
 	fi
-	echo -n "%B%(?:$green◆:$red✖ %?) $cyan%c%b$git_info $(_git_ahead)%B%(?:$normal%B❯$cyan❯$green❯:$red❯❯❯)%b$normal "
+	if [ ! -z "$PROMPT_DEVICE_NAME" ]; then
+		device_name="$PROMPT_DEVICE_NAME "
+	fi
+	echo -n "%B$blue$device_name%(?:$green◆:$red✖ %?) $cyan%c%b$git_info $(_git_ahead)%B%(?:$normal%B❯$cyan❯$green❯:$red❯❯❯)%b$normal "
 }
 
 # Set prompt
