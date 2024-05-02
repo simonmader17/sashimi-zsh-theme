@@ -17,7 +17,7 @@ _git_branch_name() {
 	git symbolic-ref HEAD 2>/dev/null | sed -e 's|^refs/heads/||'
 }
 _is_git_dirty() {
-	git status -s --ignore-submodules=dirty 2>/dev/null
+	timeout 0.5 git status -s --ignore-submodules=dirty 2>/dev/null || echo "timeout"
 }
 _git_ahead() {
 	commits=$(git rev-list --left-right '@{upstream}...HEAD' 2>/dev/null)
@@ -51,7 +51,11 @@ sashimi() {
 			git_info="$normal git:($blue%B$git_branch$normal)"
 		fi
 
-		if [ "$(_is_git_dirty)" != "" ]; then
+		dirty_check="$(_is_git_dirty)"
+		if [ "$dirty_check" = "timeout" ]; then
+			dirty="%B$red󰚭%b"
+			git_info="$git_info $dirty"
+		elif [ "$dirty_check" != "" ]; then
 			dirty="%B$yellow✗%b"
 			git_info="$git_info $dirty"
 		fi
