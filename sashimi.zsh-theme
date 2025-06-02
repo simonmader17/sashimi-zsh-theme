@@ -1,70 +1,58 @@
-#!/usr/bin/zsh
-
-# Enable colors and activate prompt substitutions
-autoload -U colors && colors
+# enable prompt substitutions
 setopt prompt_subst
+# load vcs_info
+autoload -Uz vcs_info
+precmd_functions+=(vcs_info)
 
-# Set helper variables for colors
-cyan="%{$fg[cyan]%}"
-yellow="%{$fg[yellow]%}"
-red="%{$fg[red]%}"
-blue="%{$fg[blue]%}"
-green="%{$fg[green]%}"
-normal="%{$reset_color%}"
+# enable vcs_info only for git to improve performance
+zstyle ':vcs_info:*' enable git
+# causes %c and %u to show, potentially computationally expensive
+zstyle ':vcs_info:*' check-for-changes true
 
-# Sashimi theme
-_git_branch_name() {
-	git symbolic-ref HEAD 2>/dev/null | sed -e 's|^refs/heads/||'
+# hooks
++vi-git-ahead() {
+	commits="$(git rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null)"
+	(( $? != 0 )) && return
+	IFS=$'\t' read -r behind ahead <<< "$commits"
+	(( ahead > 0 )) && hook_com[misc]="${hook_com[misc]} ↑$ahead"
+	(( behind > 0 )) && hook_com[misc]="${hook_com[misc]} ↓$behind"
+	return 0
 }
-_is_git_dirty() {
-	timeout 0.5 git status -s --ignore-submodules=dirty 2>/dev/null || echo "timeout"
-}
-_git_ahead() {
-	commits=$(git rev-list --left-right '@{upstream}...HEAD' 2>/dev/null)
-	if [ $? != 0 ]; then
-		return
++vi-git-branch-color() {
+	if [[ "${hook_com[branch]}" =~ ^(main|master)$ ]]; then
+		hook_com[branch]="%F{red}${hook_com[branch]}%f"
+	else
+		hook_com[branch]="%F{blue}${hook_com[branch]}%f"
 	fi
-	behind=$(echo -n $commits | grep "^<" | wc -l)
-	ahead=$(echo -n $commits | grep -v "^<" | wc -l)
-	case "$ahead $behind" in
-		"") ;; # no upstream
-		"0 0") # equal to upstream
-			return
-			;;
-		*\ 0)  # ahead of upstream
-			echo -n "%B$blue↑$ahead%b "
-			;;
-		0\ *)  # behind upstream
-			echo -n "%B$red↓$behind%b "
-			;;
-		*)     # diverged from upstream
-			echo -n "%B$blue↑$ahead $red↓$behind%b "
-			;;
-	esac
+	return 0
 }
-sashimi() {
-	git_branch="$(_git_branch_name)"
-	if [ "$git_branch" != "" ]; then
-		if [ "$git_branch" = "master" ]; then
-			git_info="$normal git:($red%B$git_branch$normal)"
-		else
-			git_info="$normal git:($blue%B$git_branch$normal)"
-		fi
+zstyle ':vcs_info:*+set-message:*' hooks git-ahead git-branch-color
 
-		dirty_check="$(_is_git_dirty)"
-		if [ "$dirty_check" = "timeout" ]; then
-			dirty="%B$red󰚭%b"
-			git_info="$git_info $dirty"
-		elif [ "$dirty_check" != "" ]; then
-			dirty="%B$yellow✗%b"
-			git_info="$git_info $dirty"
-		fi
-	fi
-	if [ ! -z "$PROMPT_DEVICE_NAME" ]; then
-		device_name="$PROMPT_DEVICE_NAME "
-	fi
-	echo -n "%B$blue$device_name%(?:$green◆:$red✖ %?) $cyan%c%b$git_info $(_git_ahead)%B%(?:$normal%B❯$cyan❯$green❯:$red❯❯❯)%b$normal "
-}
+# vcs_info replacements:
+# - %b ... current branch
+# - %u ... unstagedstr
+# - %c ... stagedstr
+# - %m ... "misc" information
+zstyle ':vcs_info:*' formats       \
+	'git:(%B%b%%b)%F{yellow}%u%c%m%f '
+zstyle ':vcs_info:*' actionformats \
+	'git:(%B%b%%b) (%F{blue}%a%f)%F{yellow}%u%c%m%f '
+zstyle ':vcs_info:*' unstagedstr   \
+	' ✗'
+zstyle ':vcs_info:*' stagedstr     \
+	' '
 
-# Set prompt
-PROMPT='$(sashimi)'
+### BUILD PROMPT ###############################################################
+
+# hostname
+PS1='%B%F{magenta}%m%b%f '
+# exit code of last process
+PS1+='%B%(?.%F{green}◆.%F{red}✖ %?)%b%f '
+# pwd
+PS1+='%B%F{cyan}%1~%b%f '
+# git info
+PS1+='${vcs_info_msg_0_}'
+# end of prompt
+PS1+='%(?.%B❯%F{cyan}❯%F{green}❯.%B%F{red}❯❯❯)%b%f '
+
+PS2='%B%F{green}❯%b%f '
